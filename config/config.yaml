@@ -1,18 +1,11 @@
 data:
   raw_path: "data/raw/housing.csv"
-  processed_train_path: "data/processed/train.csv"
-  processed_test_path: "data/processed/test.csv"
-
-preprocessing:
+  processed_path: "data/processed"
+training:
   test_size: 0.2
   random_state: 42
-  target_column: "price"
-  numerical_features: ["sqft", "bedrooms", "bathrooms"]
-  categorical_features: ["location", "house_type"]
-
+  param_dist: {}
 model:
-  type: "RandomForest"
-  hyperparameters:
-    n_estimators: 100
-    max_depth: 10
-    random_state: 42
+  path: "artifacts/optimized_xgboost_model.pkl"
+  scaler_path: "artifacts/scaler.pkl"
+  label_encoders_path: "artifacts/label_encoders.pkl"

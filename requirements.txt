@@ -1,0 +1,12 @@
+pandas
+numpy
+matplotlib
+seaborn
+scikit-learn
+xgboost
+flask
+werkzeug
+mlflow
+joblib
+PyYAML
+optuna

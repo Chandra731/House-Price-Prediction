@@ -1,68 +1,40 @@
 import pandas as pd
-import numpy as np
-import yaml
-import os
-from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler, LabelEncoder
-import joblib
+from sklearn.impute import SimpleImputer
 
-# Load configuration
-with open("config/config.yaml", "r") as file:
-    config = yaml.safe_load(file)
+def load_data(file_path):
+    return pd.read_csv(file_path)
 
-class DataPreprocessor:
-    def __init__(self):
-        self.scaler = StandardScaler()
-        self.encoders = {}
+def preprocess_data(df, label_encoders=None, scaler=None):
+    if label_encoders is None:
+        label_encoders = {}
+    if scaler is None:
+        scaler = StandardScaler()
 
-    def load_data(self):
-        """Loads raw dataset from the specified path."""
-        data_path = config["data"]["raw_path"]
-        df = pd.read_csv(data_path)
-        return df
+    # Separate numerical & categorical columns
+    num_cols = df.select_dtypes(include=["int64", "float64"]).columns
+    cat_cols = df.select_dtypes(include=["object"]).columns
 
-    def preprocess(self, df):
-        """Handles missing values, encodes categorical variables, and scales numerical features."""
-        target = config["preprocessing"]["target_column"]
-        numerical_features = config["preprocessing"]["numerical_features"]
-        categorical_features = config["preprocessing"]["categorical_features"]
+    # Fill numerical columns with Median
+    imputer_num = SimpleImputer(strategy="median")
+    df[num_cols] = imputer_num.fit_transform(df[num_cols])
 
-        # Fill missing values
-        df.fillna(df.median(numeric_only=True), inplace=True)
+    # Fill categorical columns with Mode
+    imputer_cat = SimpleImputer(strategy="most_frequent")
+    df[cat_cols] = imputer_cat.fit_transform(df[cat_cols])
 
-        # Encode categorical features
-        for col in categorical_features:
-            le = LabelEncoder()
-            df[col] = le.fit_transform(df[col])
-            self.encoders[col] = le
+    # Encode categorical features
+    for feature in cat_cols:
+        if feature not in label_encoders:
+            label_encoders[feature] = LabelEncoder()
+        df[feature] = label_encoders[feature].fit_transform(df[feature])
 
-        # Scale numerical features
-        df[numerical_features] = self.scaler.fit_transform(df[numerical_features])
+    # Apply scaling to numerical features
+    df[num_cols] = scaler.fit_transform(df[num_cols])
 
-        # Split dataset
-        X = df.drop(columns=[target])
-        y = df[target]
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=config["preprocessing"]["test_size"], random_state=config["preprocessing"]["random_state"])
-        
-        return X_train, X_test, y_train, y_test
+    return df, label_encoders, scaler
 
-    def save_preprocessing_artifacts(self):
-        """Saves scaler and encoders as artifacts."""
-        os.makedirs("artifacts", exist_ok=True)
-        joblib.dump(self.scaler, "artifacts/scaler.pkl")
-        joblib.dump(self.encoders, "artifacts/label_encoders.pkl")
-
-if __name__ == "__main__":
-    preprocessor = DataPreprocessor()
-    df = preprocessor.load_data()
-    X_train, X_test, y_train, y_test = preprocessor.preprocess(df)
-    preprocessor.save_preprocessing_artifacts()
-
-    # Save processed data
-    os.makedirs("data/processed", exist_ok=True)
-    X_train.to_csv("data/processed/train.csv", index=False)
-    X_test.to_csv("data/processed/test.csv", index=False)
-    y_train.to_csv("data/processed/y_train.csv", index=False)
-    y_test.to_csv("data/processed/y_test.csv", index=False)
-    
-    print("Data Preprocessing Completed.")
+def save_preprocessing_artifacts(scaler, label_encoders, scaler_path, label_encoders_path):
+    import joblib
+    joblib.dump(scaler, scaler_path)
+    joblib.dump(label_encoders, label_encoders_path)

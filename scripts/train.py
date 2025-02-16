@@ -1,28 +1,84 @@
+import sys
+import os
 import pandas as pd
-import joblib
+from sklearn.model_selection import train_test_split
 import yaml
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.metrics import mean_squared_error
+import logging
+import logging.config
 
-# Load config
+# Add the project root directory to the Python path
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+from src.data_preprocessing import load_data, preprocess_data, save_preprocessing_artifacts
+from src.feature_engineering import select_features
+from src.model_training import train_models
+from src.evaluation import evaluate_model
+from src.hyperparameter_tuning import hyperparameter_tuning
+from src.save_artifacts import save_model_artifacts
+
+# Load logging configuration
+with open("config/logging.yaml", "r") as file:
+    logging.config.dictConfig(yaml.safe_load(file))
+
+logger = logging.getLogger(__name__)
+
+# Load configuration
 with open("config/config.yaml", "r") as file:
     config = yaml.safe_load(file)
 
-# Load data
-X_train = pd.read_csv(config["data"]["processed_train_path"])
-y_train = pd.read_csv("data/processed/y_train.csv")
-X_test = pd.read_csv(config["data"]["processed_test_path"])
-y_test = pd.read_csv("data/processed/y_test.csv")
+def main():
+    try:
+        logger.info("Loading and preprocessing data...")
+        # Load and preprocess data
+        df = load_data(config["data"]["raw_path"])
+        df_cleaned, label_encoders, scaler = preprocess_data(df)
 
-# Train model
-model = RandomForestRegressor(**config["model"]["hyperparameters"])
-model.fit(X_train, y_train)
+        # Feature selection and engineering
+        df_selected, dropped_features = select_features(df_cleaned)
 
-# Predict
-y_pred = model.predict(X_test)
-mse = mean_squared_error(y_test, y_pred)
-print(f"Model MSE: {mse}")
+        # Split data into train and test sets
+        X = df_selected.drop(columns=["median_house_value"])
+        y = df_selected["median_house_value"]
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=config["training"]["test_size"], random_state=config["training"]["random_state"])
 
-# Save model
-joblib.dump(model, config["model"]["model_path"])
-print(f"Model saved at {config['model']['model_path']}")
+        logger.info("Training models...")
+        # Train models
+        trained_models = train_models(X_train, y_train, config)
+
+        # Evaluate models
+        results = {}
+        for name, model in trained_models.items():
+            y_pred = model.predict(X_test)
+            results[name] = evaluate_model(y_test, y_pred)
+
+        logger.info("Hyperparameter tuning for the best model...")
+        # Hyperparameter tuning for the best model (XGBoost)
+        best_params = hyperparameter_tuning(X_train, y_train, config["training"]["random_state"])
+        optimized_model = xgb.XGBRegressor(objective="reg:squarederror", **best_params, random_state=config["training"]["random_state"])
+        optimized_model.fit(X_train, y_train)
+
+        # Evaluate the optimized model
+        y_pred_optimized = optimized_model.predict(X_test)
+        optimized_results = evaluate_model(y_test, y_pred_optimized)
+
+        # Save model and preprocessing artifacts
+        save_model_artifacts(optimized_model, scaler, label_encoders, config["model"]["path"], config["model"]["scaler_path"], config["model"]["label_encoders_path"])
+        save_preprocessing_artifacts(scaler, label_encoders, config["model"]["scaler_path"], config["model"]["label_encoders_path"])
+
+        # Save train and test datasets
+        train_data = pd.concat([X_train, y_train], axis=1)
+        test_data = pd.concat([X_test, y_test], axis=1)
+        train_data.to_csv(config["data"]["processed_path"] + '/train.csv', index=False)
+        test_data.to_csv(config["data"]["processed_path"] + '/test.csv', index=False)
+
+        logger.info("Model Training Completed. Results:")
+        logger.info(results)
+        logger.info("Optimized Model Results:")
+        logger.info(optimized_results)
+        logger.info("Train and Test datasets saved!")
+
+    except Exception as e:
+        logger.exception("Exception occurred during training: %s", str(e))
+
+if __name__ == "__main__":
+    main()
