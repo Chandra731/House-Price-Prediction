@@ -10,3 +10,4 @@ mlflow
 joblib
 PyYAML
 optuna
+pytest
