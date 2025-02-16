@@ -70,7 +70,7 @@ housing-price-prediction-mlops/
 
 ### Installation
 1. Clone the repository
-   ```sh
+   ```
    git clone <repository_url>
    cd housing-price-prediction-mlops
    ```
@@ -78,13 +78,13 @@ housing-price-prediction-mlops/
 2. Set up the environment using Conda or Pip
 
 #### Using Conda:
-```sh
+```
 conda env create -f environment.yml
 conda activate housing-price-prediction-mlops
 ```
 
 #### Using Pip:
-```sh
+```
 pip install -r requirements.txt
 ```
 
@@ -93,7 +93,7 @@ Ensure that your raw data file (`housing.csv`) is placed in the `data/raw/` dire
 
 4. Train the Model
 Run the training script to preprocess data, train the model, and save the artifacts:
-```sh
+```
 python scripts/train.py
 ```
 This script will:
@@ -105,7 +105,7 @@ This script will:
 
 5. Run the Flask App
 Start the Flask app to serve the model for predictions:
-```sh
+```
 python app/app.py
 ```
 The Flask app will be available at `http://localhost:5000`.
@@ -115,7 +115,7 @@ Use the web form at `http://localhost:5000` to input data and get predictions di
 
 7. Run Tests
 Run the unit tests to ensure everything is working correctly:
-```sh
+```
 pytest
 ```
 
@@ -123,12 +123,12 @@ pytest
 You can also run the project inside a Docker container.
 
 #### Build the Docker Image:
-```sh
+```
 docker build -t housing-price-prediction-mlops .
 ```
 
 #### Run the Docker Container:
-```sh
+```
 docker run -p 5000:5000 housing-price-prediction-mlops
 ```
 
